@@ -1,0 +1,49 @@
+services:
+  erp:
+    build: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      ERP_ORIGIN: https://${ERP_DOMAIN:?Set ERP_DOMAIN in .env}
+      ERP_SECURE_COOKIE: "1"
+      ERP_REQUEST_LOG: "1"
+      ERP_SETUP_TOKEN: ${ERP_SETUP_TOKEN:?Set a random ERP_SETUP_TOKEN in .env for administrator setup}
+    volumes:
+      - school_data:/app/data
+    networks:
+      - school
+    mem_limit: 1g
+    cpus: 2
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    stop_grace_period: 20s
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      erp:
+        condition: service_healthy
+    environment:
+      ERP_DOMAIN: ${ERP_DOMAIN:?Set ERP_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - school
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  school_data:
+  caddy_data:
+  caddy_config:
+networks:
+  school:
