@@ -34,13 +34,13 @@ test('demo school is complete, idempotent, and never overwrites existing records
  const empty=await fixture(t,{demo:false});await empty.a.call('customers','POST',{name:'Real Student'});assert.equal((await empty.a.call('demo','POST',{})).status,409);assert.equal((await empty.a.call('state')).data.customers.length,1);
 });
 
-test('first production administrator requires a private setup key and uses Secure cookies',async t=>{
- const secret=randomBytes(32).toString('hex'),f=await fixture(t,{demo:false,skipSetup:true,env:{NODE_ENV:'production',ERP_ORIGIN:'https://school.test',ERP_SECURE_COOKIE:'1',ERP_SETUP_TOKEN:secret}});
- const session=(await f.a.call('session')).data;assert.equal(session.setupTokenRequired,true);assert.equal(JSON.stringify(session).includes(secret),false);
- assert.equal((await f.a.call('setup','POST',admin)).status,401);
- assert.equal((await f.a.call('setup','POST',{...admin,setupToken:'invalid'})).status,401);
- const setup=await f.a.call('setup','POST',{...admin,setupToken:secret});assert.equal(setup.status,201);assert.match(setup.headers.get('set-cookie'),/; Secure/);
- assert.equal((await f.a.call('session')).data.setupTokenRequired,false);
+test('production setup needs only administrator details, allows one winner, and uses Secure cookies',async t=>{
+ const f=await fixture(t,{demo:false,skipSetup:true,env:{NODE_ENV:'production',ERP_ORIGIN:'https://school.test',ERP_SECURE_COOKIE:'1'}});
+ const session=(await f.a.call('session')).data;assert.equal(session.setupRequired,true);assert.equal(Object.hasOwn(session,'setupTokenRequired'),false);
+ const attempts=await Promise.all([f.a.call('setup','POST',admin),f.client().call('setup','POST',{...admin,email:'second@school.test'})]);
+ assert.deepEqual(attempts.map(r=>r.status).sort(),[201,409]);assert.match(attempts.find(r=>r.status===201).headers.get('set-cookie'),/; Secure/);
+ assert.equal((await f.a.call('setup','POST',admin)).status,409);
+ assert.equal((await f.a.call('session')).data.setupRequired,false);
 });
 
 test('admissions, capacity, student edits and archives are enforced',async t=>{

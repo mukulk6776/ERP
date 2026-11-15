@@ -18,11 +18,11 @@ In **Project → Settings → Environment Variables**, set:
 | `MONGODB_DB` | `school_erp` (use a different database for previews/tests) |
 | `ERP_ORIGIN` | Your exact HTTPS site origin, e.g. `https://your-project.vercel.app`, without a trailing slash |
 | `ERP_SECURE_COOKIE` | `1` |
-| `ERP_SETUP_TOKEN` | A private random secret of 32–256 characters, used to create the first administrator |
 
 Use an Atlas database user with read/write access to this database. Configure Atlas Network Access to allow
 your deployment's outbound connections. Atlas or another MongoDB replica set is required for transactions.
-Redeploy after setting the variables. Open the site and enter your setup key to create the administrator.
+Redeploy after setting the variables. Open the site and create the administrator with your name, email, and password.
+Complete this immediately after deployment: until the first account exists, anyone who reaches setup can claim the administrator account.
 Keep `ERP_DEMO` unset for a real school. A fresh MongoDB database starts empty; local records are not uploaded automatically.
 Do not put the URI/password in GitHub, browser JavaScript, or chat messages.
 

@@ -7,7 +7,6 @@ services:
       ERP_ORIGIN: https://${ERP_DOMAIN:?Set ERP_DOMAIN in .env}
       ERP_SECURE_COOKIE: "1"
       ERP_REQUEST_LOG: "1"
-      ERP_SETUP_TOKEN: ${ERP_SETUP_TOKEN:?Set a random ERP_SETUP_TOKEN in .env for administrator setup}
     volumes:
       - school_data:/app/data
     networks:

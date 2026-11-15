@@ -24,7 +24,7 @@ function toast(message){const el=document.querySelector('#toast');el.textContent
 async function init(){
  if(passwordLinkScreen())return;
  const version=++authLoadVersion;
- try{const session=await api('session');if(version!==authLoadVersion)return;authSession=session;if(!session.authenticated)return login(session.setupRequired,session.migrationRequired,'',session.setupTokenRequired);if(!canView(view))view='dashboard';const records=await api('state');if(version!==authLoadVersion)return;state=records;render();}
+ try{const session=await api('session');if(version!==authLoadVersion)return;authSession=session;if(!session.authenticated)return login(session.setupRequired,session.migrationRequired);if(!canView(view))view='dashboard';const records=await api('state');if(version!==authLoadVersion)return;state=records;render();}
  catch(e){if(e.stale||version!==authLoadVersion)return;clearAccount();app.innerHTML='<div class="login panel"><h1>Unable to connect</h1><p>'+esc(e.message)+'</p><button id="retry">Try again</button></div>';document.querySelector('#retry').onclick=init;}
 }
 function table(headers,rows,empty='No records yet. Add your first record to get started.'){return '<div class="tablewrap"><table><thead><tr>'+headers.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>'+(!rows.length?'<div class="empty">'+empty+'</div>':'');}

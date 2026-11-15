@@ -32,7 +32,6 @@ Install dependencies with `npm ci`. Configure these variables in Vercel for the 
 - `MONGODB_DB`: `school_erp`, or another dedicated database name.
 - `ERP_ORIGIN`: the exact HTTPS website origin, with no trailing slash or path.
 - `ERP_SECURE_COOKIE`: `1`.
-- `ERP_SETUP_TOKEN`: a private random secret of 32–256 characters for initial administrator setup.
 
 Allow connections from the deployment through Atlas Network Access. Use a database user restricted to the intended database.
 Atlas (or another replica set) is required because writes use multi-document transactions. Redeploy after changing variables.
@@ -77,8 +76,7 @@ and a Caddy reverse proxy. The Node service has no published host port; only the
 
 1. Install Docker with Compose on the deployment host.
 2. Point your school domain's DNS to that host and make ports 80/443 reachable.
-3. Copy `.env.example` to `.env`, set `ERP_DOMAIN` to the domain without a protocol/path, and set `ERP_SETUP_TOKEN` to a private random key of at least 32 characters.
-   Generate a key with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Keep it private.
+3. Copy `.env.example` to `.env` and set `ERP_DOMAIN` to the domain without a protocol/path.
 4. Start the services:
 
 ```sh
@@ -87,7 +85,8 @@ docker compose ps
 docker compose logs --tail=100 erp
 ```
 
-5. Visit the HTTPS domain, enter your deployment setup key, and create the administrator. Then create individual school accounts.
+5. Visit the HTTPS domain and create the administrator with your name, email, and password. Then create individual school accounts.
+   Complete the first account immediately: until it exists, anyone who reaches setup can claim administrator access.
 
 The app refuses production mode unless `ERP_ORIGIN` is an exact HTTPS origin and `ERP_SECURE_COOKIE=1`.
 Compose sets both from your domain. Caddy handles certificates and forwards requests to the private Node service.
@@ -107,7 +106,6 @@ Capacity and throughput should be measured against the intended school workload 
 | `ERP_DATA_DIR` | `data` beside `server.js` |
 | `ERP_ORIGIN` | Exact HTTPS origin behind a reverse proxy |
 | `ERP_SECURE_COOKIE` | `1` adds the Secure cookie attribute; required in production |
-| `ERP_SETUP_TOKEN` | Private random key, 32–256 characters; required for creating the first production administrator |
 | `ERP_DEMO` | `1` seeds an empty school with fictional data; leave unset for live use |
 | `ERP_REQUEST_LOG` | `1` writes structured request ID, method, path, status and duration logs |
 | `NODE_ENV` | `production` enforces HTTPS configuration |

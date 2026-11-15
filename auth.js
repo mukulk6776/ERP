@@ -50,8 +50,6 @@ export function createAuth(db,{ephemeral=false,initializeOnly=false}={}){
  function audit(user,action){db.prepare('INSERT INTO auth_events(user_id,action) VALUES(?,?)').run(user||null,action);}
  function usersExist(){return !!db.prepare('SELECT 1 FROM users LIMIT 1').get();}
  function legacy(){return db.prepare("SELECT value FROM settings WHERE key='password'").get()?.value;}
- const setupTokenRequired=()=>process.env.NODE_ENV==='production'&&!usersExist()&&!legacy();
- if(!initializeOnly&&setupTokenRequired()&&(!process.env.ERP_SETUP_TOKEN||process.env.ERP_SETUP_TOKEN.length<32||process.env.ERP_SETUP_TOKEN.length>256))error('Set ERP_SETUP_TOKEN to a random secret of 32–256 characters before the first production launch.',500);
  function limit(req,identity=''){
   const now=Date.now();
   const limits=[['ip:'+(req.socket?.remoteAddress||'unknown'),300]];
@@ -72,7 +70,7 @@ export function createAuth(db,{ephemeral=false,initializeOnly=false}={}){
   db.prepare('UPDATE auth_sessions SET last_seen=? WHERE token_hash=?').run(Date.now(),record.token_hash);
   return {...record,user:{id:record.user_id,name:record.name,email:record.email,role:record.role,active:true}};
  }
- function describe(record){return {authenticated:!!record,user:record?.user||null,permissions:record?roles[record.role]:[],studentIds:record?studentIds(record.user.id):[],csrfToken:record?.csrf_token||null,setupRequired:!usersExist(),setupTokenRequired:setupTokenRequired(),migrationRequired:!usersExist()&&!!legacy()};}
+ function describe(record){return {authenticated:!!record,user:record?.user||null,permissions:record?roles[record.role]:[],studentIds:record?studentIds(record.user.id):[],csrfToken:record?.csrf_token||null,setupRequired:!usersExist(),migrationRequired:!usersExist()&&!!legacy()};}
  function issue(req,res,user){
   const old=session(req);if(old)db.prepare('DELETE FROM auth_sessions WHERE token_hash=?').run(old.token_hash);
   const raw=token(),csrf=token(),now=Date.now();
@@ -96,7 +94,6 @@ export function createAuth(db,{ephemeral=false,initializeOnly=false}={}){
   if(path==='/api/setup'&&req.method==='POST'){
    if(usersExist())error('School account setup has already been completed.',409);
    limit(req,'setup');const d=await body(req);
-   if(setupTokenRequired()&&(typeof d.setupToken!=='string'||d.setupToken.length>256||!timingSafeEqual(Buffer.from(hash(d.setupToken)),Buffer.from(hash(process.env.ERP_SETUP_TOKEN)))))error('Enter the deployment setup key provided by the server administrator.',401);
    if(legacy()&&!await verify(d.currentPassword,legacy())){audit(null,'migration_failed');error('Enter the existing school password to continue.',401);}
    const fullName=name(d.name),address=email(d.email),secret=password(d.password);const encoded=await encode(secret);
    // Recheck after asynchronous password hashing: only one first administrator may win.
