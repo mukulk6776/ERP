@@ -54,7 +54,7 @@ export function createAuth(db,{ephemeral=false,initializeOnly=false}={}){
  if(!initializeOnly&&setupTokenRequired()&&(!process.env.ERP_SETUP_TOKEN||process.env.ERP_SETUP_TOKEN.length<32||process.env.ERP_SETUP_TOKEN.length>256))error('Set ERP_SETUP_TOKEN to a random secret of 32–256 characters before the first production launch.',500);
  function limit(req,identity=''){
   const now=Date.now();
-  const limits=[['ip:'+req.socket.remoteAddress,300]];
+  const limits=[['ip:'+(req.socket?.remoteAddress||'unknown'),300]];
   if(identity)limits.push(['identity:'+identity,10]);
   for(const [value,max] of limits){
    const id=hash(value);const row=db.prepare('SELECT * FROM auth_limits WHERE key=?').get(id);

@@ -39,8 +39,8 @@ const handler=async(req,res)=>{
  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
  const send=(status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(data));};
  try{
-  const localPort=req.socket.localPort;
-  const allowedHosts=['127.0.0.1:'+localPort,'localhost:'+localPort,'[::1]:'+localPort];
+  const localPort=req.socket?.localPort;
+  const allowedHosts=Number.isInteger(localPort)?['127.0.0.1:'+localPort,'localhost:'+localPort,'[::1]:'+localPort]:[];
   if(process.env.ERP_ORIGIN)allowedHosts.push(new URL(process.env.ERP_ORIGIN).host);
   if(!allowedHosts.includes(req.headers.host))fail('Unrecognized host.',421);
   const path=new URL(req.url,'http://localhost').pathname;

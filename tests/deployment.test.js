@@ -4,6 +4,26 @@ import http from 'node:http';
 import {validateConfiguration} from '../configuration.js';
 import vercelHandler from '../api/index.js';
 import {storageFailureMessage} from '../mongo-storage.js';
+import {DatabaseSync} from 'node:sqlite';
+import {Readable} from 'node:stream';
+import {createApplication} from '../application.js';
+
+test('serverless request adapters can omit socket details without breaking health, sessions, or setup',async()=>{
+ const previousOrigin=process.env.ERP_ORIGIN;process.env.ERP_ORIGIN='https://school.test';
+ const db=new DatabaseSync(':memory:');db.exec('PRAGMA user_version=3;');
+ try{
+  const {handler}=createApplication(db,'',{mongo:true});
+  async function call(path,method='GET',data,host='school.test'){
+   const req=Readable.from(data?[Buffer.from(JSON.stringify(data))]:[]);Object.assign(req,{url:path,method,headers:{host,'content-type':'application/json'}});
+   const res={statusCode:200,headers:new Map(),setHeader(key,value){this.headers.set(key,value);},writeHead(status){this.statusCode=status;},end(body){this.body=JSON.parse(body);}};
+   await handler(req,res);return res;
+  }
+  assert.equal((await call('/api/health')).statusCode,200);
+  const session=await call('/api/session');assert.equal(session.statusCode,200);assert.equal(session.body.setupRequired,true);
+  assert.equal((await call('/api/health','GET',undefined,'untrusted.example')).statusCode,421,'Host validation must remain enforced');
+  const setup=await call('/api/setup','POST',{name:'Serverless Admin',email:'serverless@school.test',password:'serverless private password 123'});assert.equal(setup.statusCode,201);
+ }finally{db.close();if(previousOrigin===undefined)delete process.env.ERP_ORIGIN;else process.env.ERP_ORIGIN=previousOrigin;}
+});
 
 test('database connection diagnostics identify actionable categories without leaking driver messages',()=>{
  const privateText='mongodb://private-user:private-password@private-host/';
