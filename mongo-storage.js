@@ -98,6 +98,14 @@ function bufferedResponse(){
  return {statusCode:200,headers:new Map(),events:[],destroyed:false,on(name,listener){this.events.push([name,listener]);return this;},setHeader(name,value){this.headers.set(name.toLowerCase(),value);},writeHead(status,headers={}){this.statusCode=status;for(const [name,value]of Object.entries(headers))this.setHeader(name,value);return this;},end(body){this.body=body;this.ended=true;}};
 }
 let staticApplication;
+export function storageFailureMessage(error){
+ if(error.status)return error.message;
+ if(error.code===18)return 'MongoDB authentication failed. Check the Atlas database username and password in MONGODB_URI in Vercel, then redeploy.';
+ if(error.code===13)return 'MongoDB access was denied. Give the Atlas database user read and write access to the school database.';
+ if(error.name==='MongoParseError')return 'MONGODB_URI is invalid. Use the Atlas connection string without HTML, extra text, or surrounding quotes, then redeploy.';
+ if(error.name==='MongoServerSelectionError'||error.name==='MongoNetworkError')return 'The deployment cannot reach MongoDB Atlas. Check Atlas Network Access, cluster availability, and the connection hostname.';
+ return 'School storage is unavailable. Check the MongoDB and deployment environment settings.';
+}
 export async function mongoHandler(req,res){
  try{
   validateConfiguration();
@@ -132,6 +140,6 @@ export async function mongoHandler(req,res){
   // the original error/URI in an HTTP response or application log.
   const status=error.status||503;
   console.error(JSON.stringify({event:'mongo_request_failed',code:error.code||error.name,status}));
-  if(!res.headersSent&&!res.destroyed){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({error:error.status?error.message:'School storage is unavailable. Check the MongoDB and deployment environment settings.'}));}
+  if(!res.headersSent&&!res.destroyed){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify({error:storageFailureMessage(error)}));}
  }
 }

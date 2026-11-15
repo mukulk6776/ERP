@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import {validateConfiguration} from '../configuration.js';
 import vercelHandler from '../api/index.js';
+import {storageFailureMessage} from '../mongo-storage.js';
+
+test('database connection diagnostics identify actionable categories without leaking driver messages',()=>{
+ const privateText='mongodb://private-user:private-password@private-host/';
+ for(const [error,expected]of [[{code:18},/authentication failed/],[{code:13},/access was denied/],[{name:'MongoParseError'},/MONGODB_URI is invalid/],[{name:'MongoServerSelectionError'},/cannot reach/],[{name:'MongoNetworkError'},/cannot reach/],[{name:'UnknownError'},/storage is unavailable/]]){
+  const message=storageFailureMessage({...error,message:privateText});assert.match(message,expected);assert.equal(message.includes('private-password'),false);assert.equal(message.includes('private-host'),false);
+ }
+});
 
 test('Vercel reports missing production settings without exposing credentials or falling back to local storage',async()=>{
  const keys=['VERCEL','NODE_ENV','MONGODB_URI','ERP_ORIGIN','ERP_SECURE_COOKIE'],saved=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
