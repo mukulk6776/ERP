@@ -2,7 +2,7 @@
 
 ## Local use
 
-Requires Node.js 24 or later. No package installation is needed.
+Requires Node.js 24. Run `npm install` once to install the database driver.
 
 ```powershell
 npm start
@@ -22,6 +22,53 @@ npm start
 Alternatively, use Settings → Load sample data. Loading is allowed only when the operational tables are empty.
 Existing accounts are preserved. The sample marker is shown in the workspace. For live use, start with a separate empty data directory;
 do not mix real records into a sample database. Unset `ERP_DEMO` for a live installation.
+
+## Vercel with MongoDB Atlas
+
+Use Node.js 24. The root `vercel.json` deploys `api/index.js`; it invokes the application without opening a server port.
+Install dependencies with `npm ci`. Configure these variables in Vercel for the deployment environment:
+
+- `MONGODB_URI`: the private Atlas application connection string, with a database user's password.
+- `MONGODB_DB`: `school_erp`, or another dedicated database name.
+- `ERP_ORIGIN`: the exact HTTPS website origin, with no trailing slash or path.
+- `ERP_SECURE_COOKIE`: `1`.
+- `ERP_SETUP_TOKEN`: a private random secret of 32–256 characters for initial administrator setup.
+
+Allow connections from the deployment through Atlas Network Access. Use a database user restricted to the intended database.
+Atlas (or another replica set) is required because writes use multi-document transactions. Redeploy after changing variables.
+Keep production and preview databases separate and set each environment's exact `ERP_ORIGIN`. No real URI belongs in Git.
+
+MongoDB is the persistent source of truth: school rows, password hashes, session hashes, login limits, and audit events are
+stored in `erp_records`; `erp_meta` coordinates revisions. Each API request reconstructs a private SQLite database **in memory**
+to retain the existing validation, joins, and transaction rules. Changed rows are committed in a MongoDB transaction with
+majority write concern and a revision check before responses/cookies are sent. Concurrent changes are retried from fresh state.
+There is no writable SQLite file or persistent filesystem requirement in this mode, and no fallback to local storage on failure.
+
+This compatibility layer reads the school's rows for each API request and serializes commits through a school revision.
+It is intended for the existing single-school installation. Benchmark actual record volumes and concurrent users before a
+large rollout; it is not a high-throughput, multi-school database design. Keep app instances on the same source/schema version.
+All database access must go through the ERP; editing `erp_records` directly bypasses its validation and revision checks.
+
+MongoDB mode starts a new school in an empty database. Local records are not automatically copied.
+To import an existing school, stop the local app, set `MONGODB_URI` and `MONGODB_DB` in your shell, then run:
+
+```powershell
+node tools/migrate-to-mongo.js data/erp.sqlite
+```
+
+The import refuses to overwrite an initialized destination, preserves account/password/session records and numeric IDs,
+checks relationships, and leaves the source SQLite file unchanged. Take a backup first and validate counts after import.
+Do not initialize an administrator on the destination before importing; use a fresh database if you already did so.
+
+Settings → Create database backup and `npm run backup` save MongoDB snapshots in `erp_backups` in MongoDB mode.
+A manifest records the snapshot's row count; each row is a separate document linked by `backupId`.
+These snapshots include authentication data and share the live cluster's failure domain. Configure Atlas backups/off-site
+exports separately. Restore a snapshot to a separate database and validate it before pointing production at it.
+The administrator recovery command also works with `MONGODB_URI`; keep its one-use output private.
+
+Run `npm run test:mongo` for an isolated MongoDB replica-set integration test. It verifies independent server instances,
+concurrent payments and stock issues, sessions, revocation, persistence, MongoDB snapshots, and SQLite import.
+The test downloads a local MongoDB test binary if necessary; it does not use your Atlas credentials or real school records.
 
 ## HTTPS deployment with Docker Compose
 

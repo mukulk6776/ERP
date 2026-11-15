@@ -238,7 +238,7 @@ function settingsPage(){
  form.onsubmit=async e=>{e.preventDefault();authBusy(form);try{await api('settings','PATCH',Object.fromEntries(new FormData(form)));state=await api('state');render();toast('School details updated.');}catch(err){if(form.isConnected)authError(form,err.message);}};
  document.querySelector('#settings-users').onclick=()=>goTo('users');
  document.querySelector('#seed-demo')?.addEventListener('click',()=>actionDialog('Load sample school','Fictional records will be added to this empty school. Staff accounts and passwords are preserved.','',()=>api('demo','POST',{}),'Load sample data'));
- document.querySelector('#create-backup').onclick=async e=>{e.currentTarget.disabled=true;try{const result=await api('backups','POST',{});document.querySelector('#backup-result').textContent='Backup saved in the school data/backups folder: '+result.filename;}catch(err){toast(err.message);}finally{const b=document.querySelector('#create-backup');if(b)b.disabled=false;}};
+ document.querySelector('#create-backup').onclick=async e=>{e.currentTarget.disabled=true;try{const result=await api('backups','POST',{});document.querySelector('#backup-result').textContent=(result.storage==='mongodb'?'Snapshot saved in the MongoDB erp_backups collection: ':'Backup saved in the school data/backups folder: ')+result.filename;}catch(err){toast(err.message);}finally{const b=document.querySelector('#create-backup');if(b)b.disabled=false;}};
 }
 function reportsPage(){
  const start=today().slice(0,7)+'-01';

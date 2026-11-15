@@ -1,0 +1,7 @@
+data/
+tmp/
+output/
+tests/
+*.log
+.env
+.env.local

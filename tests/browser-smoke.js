@@ -7,7 +7,7 @@ import {browserBinary} from './browser-binary.js';
 const dir=mkdtempSync(join(tmpdir(),'school-browser-'));
 let server,browser,ws;const pending=new Map();let nextId=0;const errors=[];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function rpc(method,params={}){return new Promise((resolve,reject)=>{const id=++nextId;const timer=setTimeout(()=>{pending.delete(id);reject(new Error('CDP timeout '+method));},20000);pending.set(id,{resolve:r=>{clearTimeout(timer);resolve(r);},reject});ws.send(JSON.stringify({id,method,params}));});}
+async function rpc(method,params={}){return new Promise((resolve,reject)=>{const id=++nextId;const timer=setTimeout(()=>{pending.delete(id);reject(new Error('CDP timeout '+method));},Number(process.env.ERP_BROWSER_TIMEOUT||20000));pending.set(id,{resolve:r=>{clearTimeout(timer);resolve(r);},reject});ws.send(JSON.stringify({id,method,params}));});}
 async function evaluate(expression){const response=await rpc('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(response.exceptionDetails)throw new Error(JSON.stringify(response.exceptionDetails));return response.result.value;}
 try{
  server=spawn(process.execPath,['server.js'],{env:{...process.env,PORT:'0',ERP_DATA_DIR:join(dir,'data')},windowsHide:true});

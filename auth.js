@@ -31,7 +31,7 @@ async function verify(password,stored){
  if(!salt||!digest)return false;const actual=await key(legacy?password.trim():password,salt,legacy),expected=Buffer.from(digest,'hex');
  return actual.length===expected.length&&timingSafeEqual(actual,expected);
 }
-export function createAuth(db){
+export function createAuth(db,{ephemeral=false,initializeOnly=false}={}){
  const userSchema="(id INTEGER PRIMARY KEY,name TEXT NOT NULL,email TEXT NOT NULL UNIQUE COLLATE NOCASE,password_hash TEXT,role TEXT NOT NULL CHECK(role IN ('admin','teacher','accountant','parent','student')),active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0,1)),created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')))";
  const oldSchema=db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'").get()?.sql;
  if(oldSchema&&!oldSchema.includes("'parent'")){
@@ -51,7 +51,7 @@ export function createAuth(db){
  function usersExist(){return !!db.prepare('SELECT 1 FROM users LIMIT 1').get();}
  function legacy(){return db.prepare("SELECT value FROM settings WHERE key='password'").get()?.value;}
  const setupTokenRequired=()=>process.env.NODE_ENV==='production'&&!usersExist()&&!legacy();
- if(setupTokenRequired()&&(!process.env.ERP_SETUP_TOKEN||process.env.ERP_SETUP_TOKEN.length<32||process.env.ERP_SETUP_TOKEN.length>256))error('Set ERP_SETUP_TOKEN to a random secret of 32–256 characters before the first production launch.',500);
+ if(!initializeOnly&&setupTokenRequired()&&(!process.env.ERP_SETUP_TOKEN||process.env.ERP_SETUP_TOKEN.length<32||process.env.ERP_SETUP_TOKEN.length>256))error('Set ERP_SETUP_TOKEN to a random secret of 32–256 characters before the first production launch.',500);
  function limit(req,identity=''){
   const now=Date.now();
   const limits=[['ip:'+req.socket.remoteAddress,300]];
@@ -89,7 +89,8 @@ export function createAuth(db){
   if(!row||!row.active||row.expires_at<=Date.now())error('This link is invalid or has expired. Ask your school administrator for a new link.');
   return row;
  }
- const cleanup=setInterval(()=>{const now=Date.now();db.prepare('DELETE FROM auth_sessions WHERE expires_at<=? OR last_seen<=?').run(now,now-IDLE);db.prepare('DELETE FROM password_resets WHERE expires_at<=?').run(now);db.prepare('DELETE FROM auth_limits WHERE expires_at<=?').run(now);},60000);cleanup.unref();
+ const clean=()=>{const now=Date.now();db.prepare('DELETE FROM auth_sessions WHERE expires_at<=? OR last_seen<=?').run(now,now-IDLE);db.prepare('DELETE FROM password_resets WHERE expires_at<=?').run(now);db.prepare('DELETE FROM auth_limits WHERE expires_at<=?').run(now);};
+ if(!ephemeral){const cleanup=setInterval(clean,60000);cleanup.unref();}else if(!initializeOnly)clean();
  async function route(path,req,res,body,send){
   if(path==='/api/session'&&req.method==='GET'){send(200,describe(session(req)));return true;}
   if(path==='/api/setup'&&req.method==='POST'){

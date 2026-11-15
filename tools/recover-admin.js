@@ -7,8 +7,10 @@ import {existsSync} from 'node:fs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const path=resolve(process.env.ERP_DATA_DIR||resolve(root,'data'),'erp.sqlite');
 const address=process.argv[2]?.trim().toLowerCase();
-if(!address||!existsSync(path)){console.error('Usage: node tools/recover-admin.js administrator@email.example');process.exit(1);}
-const db=new DatabaseSync(path);
+if(!address||(!process.env.MONGODB_URI&&!existsSync(path))){console.error('Usage: node tools/recover-admin.js administrator@email.example');process.exit(1);}
+let workspace,mongo;
+if(process.env.MONGODB_URI){mongo=await import('../mongo-storage.js');workspace=await mongo.loadMongoWorkspace();}
+const db=workspace?.db||new DatabaseSync(path);
 try{
  if(!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='users'").get())throw Error('Complete administrator account setup in the browser first.');
  const user=db.prepare("SELECT id FROM users WHERE email=? AND role='admin' AND active=1").get(address);
@@ -19,6 +21,7 @@ try{
   db.prepare('INSERT INTO password_resets VALUES(?,?,?)').run(digest,user.id,Date.now()+1800000);
   db.prepare("INSERT INTO auth_events(user_id,action) VALUES(?,'local_admin_recovery')").run(user.id);db.exec('COMMIT');
  }catch(e){db.exec('ROLLBACK');throw e;}
+ if(workspace)await workspace.commit();
  const origin=process.env.ERP_ORIGIN||'http://127.0.0.1:'+(process.env.PORT||3000);
  console.log('Private one-use recovery link (expires in 30 minutes):\n'+origin+'/#reset='+raw);
-} catch(error){console.error(error.message);process.exitCode=1;}finally{db.close();}
+} catch(error){console.error(workspace?'MongoDB administrator recovery failed. Verify the account email and database connection.':error.message);process.exitCode=1;}finally{db.close();if(mongo)await mongo.closeMongo();}

@@ -4,8 +4,31 @@ A single-school ERP with staff, parent, and student accounts, fictional demo rec
 
 ## Start
 
-Requires Node.js 24 or later. Double-click start.cmd or run npm start, then open http://127.0.0.1:3000.
-No package installation is needed.
+Requires Node.js 24. Run `npm install` once, then double-click start.cmd or run `npm start` and open http://127.0.0.1:3000.
+Local use defaults to the existing SQLite file. Set `MONGODB_URI` and `MONGODB_DB` to store the school in MongoDB instead.
+
+## Vercel and MongoDB Atlas
+
+The repository includes a Vercel function entry point and routing configuration. Select Node.js 24 in Vercel.
+In **Project → Settings → Environment Variables**, set:
+
+| Variable | Value |
+| --- | --- |
+| `MONGODB_URI` | Your private Atlas application connection string, including the database user's password |
+| `MONGODB_DB` | `school_erp` (use a different database for previews/tests) |
+| `ERP_ORIGIN` | Your exact HTTPS site origin, e.g. `https://your-project.vercel.app`, without a trailing slash |
+| `ERP_SECURE_COOKIE` | `1` |
+| `ERP_SETUP_TOKEN` | A private random secret of 32–256 characters, used to create the first administrator |
+
+Use an Atlas database user with read/write access to this database. Configure Atlas Network Access to allow
+your deployment's outbound connections. Atlas or another MongoDB replica set is required for transactions.
+Redeploy after setting the variables. Open the site and enter your setup key to create the administrator.
+Keep `ERP_DEMO` unset for a real school. A fresh MongoDB database starts empty; local records are not uploaded automatically.
+Do not put the URI/password in GitHub, browser JavaScript, or chat messages.
+
+To import an existing local school, stop the local app, set the MongoDB variables in your shell, and run
+`node tools/migrate-to-mongo.js data/erp.sqlite`. The destination must be empty; the source file stays unchanged.
+See [OPERATIONS.md](OPERATIONS.md) for storage behavior, snapshots, and verification.
 
 On first use, enter your name, email, and a personal password of 15–128 characters.
 If upgrading from the shared school password, enter that existing password to create the first administrator.
@@ -93,7 +116,7 @@ See [OPERATIONS.md](OPERATIONS.md) for HTTPS deployment, environment settings, b
 
 ## Storage and backups
 
-The SQLite database is data/erp.sqlite. Authentication and school records share this database.
+Local mode uses data/erp.sqlite. With `MONGODB_URI`, authentication and school records are persisted in MongoDB instead.
 Before the authentication upgrade, a consistent snapshot is saved under data/backups.
 Protect backups as carefully as the live database. Stop the app before manually copying or restoring the entire data folder.
 Restoring old authentication backups may restore old passwords and sessions; rotate staff passwords after disaster recovery.

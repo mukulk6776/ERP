@@ -136,8 +136,10 @@ export function createSchool(db,auth,dataDir){
    const fields={school_name:text(d.school_name,'School name'),school_address:text(d.school_address,'School address',500),school_phone:text(d.school_phone,'Phone',40),school_email:mail(d.school_email),academic_year:text(d.academic_year,'Academic year',30),principal:text(d.principal,'Principal name')};
    result=transaction(()=>{for(const [key,value]of Object.entries(fields))db.prepare('UPDATE settings SET value=? WHERE key=?').run(value,key);audit(account,'updated','settings',null);return {ok:true};});
   }else if(kind==='backups'&&method==='POST'){
-   mkdirSync(resolve(dataDir,'backups'),{recursive:true});const filename='school-'+today()+'-'+randomUUID()+'.sqlite';
-   db.prepare('VACUUM INTO ?').run(resolve(dataDir,'backups',filename));audit(account,'created','backup',null,filename);result={filename};
+   let filename;
+   if(db.createBackup)filename=await db.createBackup();
+   else{mkdirSync(resolve(dataDir,'backups'),{recursive:true});filename='school-'+today()+'-'+randomUUID()+'.sqlite';db.prepare('VACUUM INTO ?').run(resolve(dataDir,'backups',filename));}
+   audit(account,'created','backup',null,filename);result={filename,storage:db.createBackup?'mongodb':'sqlite'};
   }else if(kind==='demo'&&method==='POST'){
    seedDemo();audit(account,'loaded','demo',null);result={ok:true};
   }else if(kind==='classes'&&['POST','PATCH'].includes(method)){
